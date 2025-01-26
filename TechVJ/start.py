@@ -92,13 +92,9 @@ async def process_message(client, acc, message, datas, msg_id):
             username = datas[3]
             msg = await client.get_messages(username, msg_id)
             if msg:
-                msg_type = get_message_type(msg)
-                if msg_type:
-                    await send_media(client, acc, msg, message.chat.id, message.id)
-                else:
-                    await client.send_message(message.chat.id, "The message doesn't contain any downloadable media.", reply_to_message_id=message.id)
+                await client.copy_message(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
             else:
-                await client.send_message(message.chat.id, "The message does not exist or is empty.", reply_to_message_id=message.id)
+                await client.send_message(message.chat.id, "The message is not available.", reply_to_message_id=message.id)
     except UsernameNotOccupied:
         await client.send_message(message.chat.id, "The username is not occupied by anyone", reply_to_message_id=message.id)
     except Exception as e:
