@@ -62,17 +62,7 @@ async def save(client: Client, message: Message):
         return await message.reply_text("**One task is already in progress. Use /cancel to stop it.**")
 
     datas = message.text.split("/")
-    try:
-        from_id, to_id = map(int, datas[-1].replace("?single", "").split("-"))
-    except ValueError:
-        # Handle single message links
-        try:
-            msg_id = int(datas[-1].replace("?single", ""))
-            from_id = to_id = msg_id
-        except ValueError:
-            await message.reply_text("Invalid message link format")
-            return
-
+    from_id, to_id = map(int, datas[-1].replace("?single", "").split("-"))
     BatchStatus.IS_BATCH[message.from_user.id] = False
 
     user_data = await db.get_session(message.from_user.id)
@@ -100,78 +90,25 @@ async def process_message(client, acc, message, datas, msg_id):
             await handle_private(client, acc, message, username, msg_id)
         else:
             username = datas[3]
-            msg = await acc.get_messages(username, msg_id)
+            msg = await client.get_messages(username, msg_id)
             if msg:
-                if msg.text:
-                    await client.send_message(
-                        message.chat.id,
-                        text=msg.text,
-                        entities=msg.entities,
-                        reply_to_message_id=message.id
-                    )
-                else:
-                    await client.copy_message(
-                        message.chat.id,
-                        msg.chat.id,
-                        msg.id,
-                        reply_to_message_id=message.id
-                    )
+                await client.copy_message(message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
             else:
-                await client.send_message(
-                    message.chat.id,
-                    "The message is not available.",
-                    reply_to_message_id=message.id
-                )
+                await client.send_message(message.chat.id, "The message is not available.", reply_to_message_id=message.id)
     except UsernameNotOccupied:
-        await client.send_message(
-            message.chat.id,
-            "The username is not occupied by anyone",
-            reply_to_message_id=message.id
-        )
+        await client.send_message(message.chat.id, "The username is not occupied by anyone", reply_to_message_id=message.id)
     except Exception as e:
         if ERROR_MESSAGE:
-            await client.send_message(
-                message.chat.id,
-                f"Error: {e}",
-                reply_to_message_id=message.id
-            )
+            await client.send_message(message.chat.id, f"Error: {e}", reply_to_message_id=message.id)
 
 async def handle_private(client: Client, acc, message: Message, chat_id, msg_id: int):
     msg = await acc.get_messages(chat_id, msg_id)
-    if msg is None:
-        await client.send_message(
-            message.chat.id,
-            "The message does not exist.",
-            reply_to_message_id=message.id
-        )
-        return
-
-    # Handle text messages directly
-    if msg.text:
-        await client.send_message(
-            message.chat.id,
-            text=msg.text,
-            entities=msg.entities,
-            reply_to_message_id=message.id
-        )
+    if msg is None or msg.empty:
+        await client.send_message(message.chat.id, "The message does not exist or is empty.", reply_to_message_id=message.id)
         return
 
     msg_type = get_message_type(msg)
     if not msg_type:
-        await client.send_message(
-            message.chat.id,
-            "This message type is not supported.",
-            reply_to_message_id=message.id
-        )
-        return
-
-    if msg_type == "Text":
-        await client.send_message(
-            message.chat.id,
-            text=msg.text,
-            entities=msg.entities,
-            reply_to_message_id=message.id
-        )
         return
 
     chat = message.chat.id
